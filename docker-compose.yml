@@ -1,0 +1,67 @@
+version: '3'
+services:
+
+  mysql:
+    image: mysql:5.7
+    container_name: "${APP_NAME}-db"
+    restart: always
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: exampleuser
+      MYSQL_PASSWORD: examplepass
+      MYSQL_ROOT_PASSWORD: secret
+    expose:
+      - "3306"
+    volumes:
+      - ./docker/my.cnf:/etc/mysql/conf.d/docker-my.cnf
+      - ./docker/mysql:/var/lib/mysql
+    networks:
+      - wordpress-network
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: ${APP_NAME}-phpmyadmin
+    restart: always
+    expose:
+      - "80"
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_ARBITRARY: 1
+    networks:
+      - wordpress-network
+
+  php:
+    build:
+      context: ./docker/php
+    working_dir: /var/www/html
+    container_name: ${APP_NAME}-php
+    volumes:
+      - ./website:/var/www/html
+    expose:
+      - "9000"
+    depends_on:
+      - mysql
+    networks:
+      - wordpress-network
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: ${APP_NAME}-nginx
+    expose:
+      - "80"
+    ports:
+      - "8080:80"
+    volumes:
+      - ./website:/var/www/html
+      - ./docker/nginx/nginx:/etc/nginx/conf.d/default.conf
+      - ./certs:/var/www/certs
+    depends_on:
+      - php
+      - mysql
+    networks:
+      - wordpress-network
+
+networks:
+  wordpress-network:
+    driver: bridge
